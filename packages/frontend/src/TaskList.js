@@ -6,6 +6,37 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import EventIcon from '@mui/icons-material/Event';
 
+// Local storage helper functions
+const TASKS_STORAGE_KEY = 'todo-tasks';
+
+const getTasksFromStorage = () => {
+  try {
+    const stored = localStorage.getItem(TASKS_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch (error) {
+    console.error('Error reading tasks from storage:', error);
+    return [];
+  }
+};
+
+const saveTasksToStorage = (tasks) => {
+  try {
+    localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
+  } catch (error) {
+    console.error('Error saving tasks to storage:', error);
+  }
+};
+
+// Priority color mapping based on requirements
+const getPriorityColor = (priority) => {
+  switch (priority) {
+    case 'P1': return { backgroundColor: '#f44336', color: 'white' }; // Red
+    case 'P2': return { backgroundColor: '#ff9800', color: 'white' }; // Orange  
+    case 'P3': return { backgroundColor: '#9e9e9e', color: 'white' }; // Gray
+    default: return { backgroundColor: '#9e9e9e', color: 'white' };
+  }
+};
+
 function TaskList({ onEdit }) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,10 +61,16 @@ function TaskList({ onEdit }) {
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/tasks');
-      if (!response.ok) throw new Error('Failed to fetch tasks');
-      const data = await response.json();
-      setTasks(data);
+      const data = getTasksFromStorage();
+      // Ensure existing tasks have priority field (migration)
+      const migratedTasks = data.map(task => ({
+        ...task,
+        priority: task.priority || 'P3'
+      }));
+      if (migratedTasks.length !== data.length || migratedTasks.some((task, i) => task.priority !== data[i].priority)) {
+        saveTasksToStorage(migratedTasks);
+      }
+      setTasks(migratedTasks);
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -44,11 +81,11 @@ function TaskList({ onEdit }) {
 
   const handleToggleComplete = async (task) => {
     try {
-      await fetch(`/api/tasks/${task.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: !task.completed })
-      });
+      const allTasks = getTasksFromStorage();
+      const updatedTasks = allTasks.map(t => 
+        t.id === task.id ? { ...t, completed: !t.completed } : t
+      );
+      saveTasksToStorage(updatedTasks);
       fetchTasks();
     } catch (err) {
       setError('Failed to update task');
@@ -57,7 +94,9 @@ function TaskList({ onEdit }) {
 
   const handleDelete = async (id) => {
     try {
-      await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+      const allTasks = getTasksFromStorage();
+      const updatedTasks = allTasks.filter(t => t.id !== id);
+      saveTasksToStorage(updatedTasks);
       fetchTasks();
     } catch (err) {
       setError('Failed to delete task');
@@ -203,6 +242,16 @@ function TaskList({ onEdit }) {
                 gap: 1
               }}
             >
+              <Chip
+                label={task.priority || 'P3'}
+                size="small"
+                sx={{
+                  height: 20,
+                  fontSize: '0.7rem',
+                  fontWeight: 600,
+                  ...getPriorityColor(task.priority || 'P3')
+                }}
+              />
               {task.due_date && (
                 <Chip
                   icon={<EventIcon sx={{ fontSize: 14 }} />}

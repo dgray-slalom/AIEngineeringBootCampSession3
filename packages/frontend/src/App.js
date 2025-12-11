@@ -4,26 +4,55 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import TaskList from './TaskList';
 import TaskForm from './TaskForm';
 
+// Local storage helper functions
+const TASKS_STORAGE_KEY = 'todo-tasks';
+
+const getTasksFromStorage = () => {
+  try {
+    const stored = localStorage.getItem(TASKS_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch (error) {
+    console.error('Error reading tasks from storage:', error);
+    return [];
+  }
+};
+
+const saveTasksToStorage = (tasks) => {
+  try {
+    localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
+  } catch (error) {
+    console.error('Error saving tasks to storage:', error);
+  }
+};
+
 function App() {
   const [editingTask, setEditingTask] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const handleSave = async (task) => {
+  const handleSave = async (taskData) => {
+    const tasks = getTasksFromStorage();
+    
     if (editingTask) {
       // Edit existing task
-      await fetch(`/api/tasks/${editingTask.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(task)
-      });
+      const updatedTasks = tasks.map(task => 
+        task.id === editingTask.id 
+          ? { ...task, ...taskData, priority: taskData.priority || 'P3' }
+          : task
+      );
+      saveTasksToStorage(updatedTasks);
       setEditingTask(null);
     } else {
       // Add new task
-      await fetch('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(task)
-      });
+      const newTask = {
+        id: Date.now(), // Simple ID generation
+        title: taskData.title,
+        description: taskData.description || '',
+        due_date: taskData.due_date || null,
+        priority: taskData.priority || 'P3',
+        completed: false,
+        created_at: new Date().toISOString()
+      };
+      saveTasksToStorage([...tasks, newTask]);
     }
     setRefreshKey(k => k + 1);
   };
