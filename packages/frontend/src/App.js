@@ -25,6 +25,61 @@ const saveTasksToStorage = (tasks) => {
   }
 };
 
+// API helper functions (for future use when switching from local storage)
+const API_BASE_URL = 'http://localhost:3030/api';
+
+const apiUpdateTask = async (taskId, taskData) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: taskData.title,
+        description: taskData.description || '',
+        due_date: taskData.due_date || null,
+        priority: taskData.priority || 'P3'
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error updating task via API:', error);
+    throw error;
+  }
+};
+
+const apiCreateTask = async (taskData) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/tasks`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: taskData.title,
+        description: taskData.description || '',
+        due_date: taskData.due_date || null,
+        priority: taskData.priority || 'P3'
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error creating task via API:', error);
+    throw error;
+  }
+};
+
 function App() {
   const [editingTask, setEditingTask] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -33,7 +88,8 @@ function App() {
     const tasks = getTasksFromStorage();
     
     if (editingTask) {
-      // Edit existing task
+      // Edit existing task (currently using local storage per MVP requirements)
+      // Alternative: use apiUpdateTask(editingTask.id, taskData) for API approach
       const updatedTasks = tasks.map(task => 
         task.id === editingTask.id 
           ? { ...task, ...taskData, priority: taskData.priority || 'P3' }
@@ -42,7 +98,8 @@ function App() {
       saveTasksToStorage(updatedTasks);
       setEditingTask(null);
     } else {
-      // Add new task
+      // Add new task (currently using local storage per MVP requirements)
+      // Alternative: use apiCreateTask(taskData) for API approach
       const newTask = {
         id: Date.now(), // Simple ID generation
         title: taskData.title,
